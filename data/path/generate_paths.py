@@ -506,7 +506,7 @@ class IIPath:
                                 write_content = path_id + '\t' + path + '\n'
                                 outfile.write(write_content)
             this_time = time.time() - start_time
-            print(f'processed item: {i}, time: {this_time}')
+            # print(f'processed item: {i}, time: {this_time}')
 
     def save_ibici(self, all_item_ids, start_time, outfile):
         limit = 5
