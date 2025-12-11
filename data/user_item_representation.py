@@ -110,7 +110,7 @@ print(f'user_item_representation.py device: {device}')
 # 当前脚本目录
 BASE_DIR = Path(__file__).resolve().parent
 REFINE_DIR = BASE_DIR.parent / "Amazon_Music" / "refine"
-REPRESENTATIONS_DIR = BASE_DIR.parent / "Amazon_Music" / "representations"
+REPRESENTATIONS_DIR = BASE_DIR.parent / "data" / "Amazon_Music" / "representations"
 
 # 用户-物品关系文件
 user_item_file = BASE_DIR / "Amazon_Music" / "refine" / "user_item.relation"
