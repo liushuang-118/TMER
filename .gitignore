@@ -18,3 +18,12 @@ data/Amazon_Music/representations/user_item_dic.wv
 *.log
 *.tmp
 *.out
+
+# 临时/缓存文件
+__pycache__/
+*.pyc
+
+# 数据文件
+links/
+training
+testing
