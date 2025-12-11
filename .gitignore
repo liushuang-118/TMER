@@ -1,29 +1,51 @@
-# 忽略 Amazon_Music/old 目录及其所有内容
-data/Amazon_Music/old/
-
-data/Amazon_Music/representations/user_item_dic.wv
-
-# 数据文件夹（大文件或临时文件）
-/D:/Thesis_Project/Models/TMER/data/
-*.wv
-*.dic
-*.pkl
-*.nx
-
-# 训练输出
-/D:/Thesis_Project/Models/TMER/testing
-/D:/Thesis_Project/Models/TMER/training
-
-# 其他缓存或中间文件
+# =========================
+# Python 缓存 & 临时文件
+# =========================
+__pycache__/
+*.pyc
 *.log
 *.tmp
 *.out
 
-# 临时/缓存文件
-__pycache__/
-*.pyc
+# =========================
+# 数据和中间文件
+# =========================
+# Amazon Music 数据目录及生成文件
+data/Amazon_Music/old/
+data/Amazon_Music/representations/user_item_dic.wv
+data/Amazon_Music/path/all_ui_ii_instance_paths/
+data/Amazon_Music/path/node_path/
+data/Amazon_Music/path/user_history/user_history.id2edges
+data/Amazon_Music/path/user_history/user_history_edge_path.txt
+data/Amazon_Music/refine/item_brand_refine.csv
+data/Amazon_Music/refine/item_category_refine.csv
+data/Amazon_Music/refine/item_item.relation
+data/Amazon_Music/refine/item_item_refine.csv
+data/Amazon_Music/refine/map.id2name
+data/Amazon_Music/refine/map.id2type
+data/Amazon_Music/refine/map.name2id
+data/Amazon_Music/refine/map.name2type
+data/Amazon_Music/refine/map.type2name
 
-# 数据文件
-links/
-training
-testing
+# 数据文件（大文件 / 临时文件）
+data/Amazon_Music/*.wv
+data/Amazon_Music/*.dic
+data/Amazon_Music/*.pkl
+data/Amazon_Music/*.nx
+
+# 训练输出目录
+data/Amazon_Music/testing/
+data/Amazon_Music/training/
+
+# links 和其他临时文件
+data/Amazon_Music/links/
+data/Amazon_Music/training/
+data/Amazon_Music/testing/
+
+# =========================
+# 项目其他缓存
+# =========================
+data/__pycache__/
+data/path/__pycache__/
+data/path/path_attention/__pycache__/
+data/path/user_history/__pycache__/
