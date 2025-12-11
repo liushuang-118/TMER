@@ -68,10 +68,10 @@ def process_initial_ratings(args):
         user_items = small_ratings[(small_ratings[0] == userid)]
         user_items.columns = ['userid', 'itemid', 'ratings', 'timestamp']
         if len(user_items) <= topk:
-            selected_ratings = selected_ratings.append(user_items, ignore_index=True)
+            selected_ratings = pd.concat([selected_ratings, new_user_items], ignore_index=True)
             continue
         new_user_items = user_items.nlargest(topk, 'timestamp')
-        selected_ratings = selected_ratings.append(new_user_items, ignore_index=True)
+        selected_ratings = pd.concat([selected_ratings, new_user_items], ignore_index=True)
 
     re_user = Counter(selected_ratings['userid'])
     print(len(re_user))
