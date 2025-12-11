@@ -37,12 +37,15 @@ If you want to change the dataset, you can modify the name in the code.
 
 `python data/user_item_representation.py`
 
-5.generate user-item and item-item meta-path instances and learn their representations
+5.generate user-item and item-item meta-path instances and learn their representations 
+(cd D:\Thesis_Project\Models\TMER\data\path `python generate_paths.py`)
+(cd D:\Thesis_Project\Models\TMER `python -m data.path.user_history.meta_path_instances_representation`)
 
 `python data/path/generate_paths.py`<br>
 `python data/path/user_history/meta_path_instances_representation.py`
 
 6.sequence item-item paths for each user
+(cd D:\Thesis_Project\Models\TMER `python data/path/user_history/user_history.py`)
 
 `python data/path/user_history/user_history.py`
 
