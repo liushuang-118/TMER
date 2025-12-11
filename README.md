@@ -25,9 +25,9 @@ If you want to change the dataset, you can modify the name in the code.
 
 `python data_process.py`
 
-2.learn the user and item representations
+2.learn the user and item representations (under TMER)
 
-`python data/path/embed_nodes.py`
+`python -m data.path.embed_nodes`
 
 3.learn the item-item path representations
 

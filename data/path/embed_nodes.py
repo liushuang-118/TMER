@@ -14,7 +14,7 @@
 
 import random
 
-from data.path import simple_walks as serialized_walks
+from . import simple_walks as serialized_walks
 from gensim.models import Word2Vec
 import pickle
 import torch
@@ -29,7 +29,17 @@ if __name__ == '__main__':
     representation_size = 100
     window_size = 3
     output = '../Amazon_Music/node.wv'
-    G = pickle.load(open('../Amazon_Music/graph.nx', 'rb')) #node 包括 user/item/brand/category/also_bought
+
+    # embed_nodes.py 所在目录
+    base_dir = Path(__file__).resolve().parent
+
+    # graph.nx 文件路径
+    graph_file = base_dir.parent / 'Amazon_Music' / 'graph.nx'
+
+    # G = pickle.load(open('../Amazon_Music/graph.nx', 'rb')) #node 包括 user/item/brand/category/also_bought
+
+    G = pickle.load(open(graph_file, 'rb'))
+
     walks_filebase = "../Amazon_Music/path/node_path/walks.txt"
     nodewv = '../Amazon_Music/nodewv.dic'
     print("Number of nodes: {}".format(G.number_of_nodes()))
@@ -51,8 +61,18 @@ if __name__ == '__main__':
 
 
     print("Training...")
-    model = Word2Vec(walks, size=representation_size, window=window_size, min_count=0, sg=1, hs=1,
-                     workers=workers)
+    # model = Word2Vec(walks, size=representation_size, window=window_size, min_count=0, sg=1, hs=1,
+    #                  workers=workers)
+    
+    model = Word2Vec(
+        sentences=walks,
+        vector_size=representation_size,  # 之前的 size
+        window=window_size,
+        min_count=0,
+        sg=1,
+        hs=1,
+        workers=workers
+    )
 
     model.wv.save_word2vec_format(output)
 
