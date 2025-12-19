@@ -31,7 +31,7 @@ class Recommendation(nn.Module):
             self.bias.data.uniform_(-stdv, stdv)
 
 
-    def forward(self, item_emb, sequence_emb):
+    def forward(self, item_emb, sequence_emb, return_att=False):
         """
 
         :param sequence_emb
@@ -42,6 +42,10 @@ class Recommendation(nn.Module):
         a, b, c = output.shape
         output = output.reshape((a, c))
         fe = F.log_softmax(output)
+
+        if return_att:
+            return fe, weights
+
         return fe
 
 def instances_slf_att(model, input_tensor, device):
@@ -52,19 +56,20 @@ def item_attention(model, item_input, ii_path, device):
     with torch.no_grad():
         return model(item_input.to(device), ii_path.to(device))
 
-# def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
-#     best_hit_1 = best_hit_5 = best_hit_10 = best_hit_20 = best_hit_50 = 0.0
-#     best_ndcg_1 = best_ndcg_5 = best_ndcg_10 = best_ndcg_20 = best_ndcg_50 = 0.0
 
-#     # 将 node_emb 转成 tensor 并放到 device 上
+# def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
+#     best_hr_10 = 0.0
+#     best_recall_10 = 0.0
+#     best_precision_10 = 0.0
+#     best_ndcg_10 = 0.0
+
 #     if isinstance(node_emb, np.ndarray):
 #         node_emb = torch.tensor(node_emb, dtype=torch.float32).to(device)
 #     else:
 #         node_emb = node_emb.to(device)
 
-#     # 准备正负样本
-#     all_pos = []
-#     all_neg = []
+#     # 正负样本
+#     all_pos, all_neg = [], []
 #     for idx in range(test_data.shape[0]):
 #         user, item, link = test_data[idx]
 #         user, item, link = int(user), int(item), int(link)
@@ -76,172 +81,203 @@ def item_attention(model, item_input, ii_path, device):
 #     recommendation = Recommendation(latent_size).to(device)
 #     optimizer = torch.optim.Adam(recommendation.parameters(), lr=1e-3)
 
+#     # 存储所有推荐结果
+#     all_recommendations = []
+    
 #     for epoch in range(100):
+#         # ========= Train =========
 #         train_start_time = time.time()
 #         running_loss = 0.0
-#         for step, batch in enumerate(train_loader):
+
+#         for batch in train_loader:
 #             batch = batch.long()
 #             user_ids = batch[:, 0]
 #             item_ids = batch[:, 1]
 #             labels = batch[:, 2].to(device)
 
-#             # 获取用户序列 embedding
 #             batch_sequence_tensor = []
 #             for u_id in user_ids:
-#                 user_seq_len = sequence_tensor[u_id].shape[0]  # 动态获取长度
-#                 batch_sequence_tensor.append(sequence_tensor[u_id].reshape(1, user_seq_len, latent_size))
-#             batch_sequence_tensor = torch.cat(batch_sequence_tensor, dim=0).to(device)  # [batch_size, seq_len, latent_size]
+#                 seq_len = sequence_tensor[u_id].shape[0]
+#                 batch_sequence_tensor.append(
+#                     sequence_tensor[u_id].reshape(1, seq_len, latent_size)
+#                 )
+#             batch_sequence_tensor = torch.cat(batch_sequence_tensor, dim=0).to(device)
 
-#             # 获取 item embedding
-#             batch_item_emb = node_emb[item_ids].unsqueeze(1)  # [batch_size, 1, latent_size]
+#             batch_item_emb = node_emb[item_ids].unsqueeze(1)
 
 #             optimizer.zero_grad()
-#             prediction = recommendation(batch_item_emb, batch_sequence_tensor)  # [batch_size, num_classes]
-#             loss_train = torch.nn.functional.cross_entropy(prediction, labels)
-#             loss_train.backward()
+#             prediction = recommendation(batch_item_emb, batch_sequence_tensor)
+#             loss = torch.nn.functional.cross_entropy(prediction, labels)
+#             loss.backward()
 #             optimizer.step()
-#             running_loss += loss_train.item()
+
+#             running_loss += loss.item()
 
 #         train_time = time.time() - train_start_time
-#         print(f'epoch: {epoch}, training loss: {running_loss:.4f}, train time: {train_time:.2f}s')
+#         print(f"epoch:{epoch}, loss:{running_loss:.4f}, train_time:{train_time:.2f}s")
 
-#         # 每 50 epoch 测试一次
+#         # ========= Test every 50 epochs =========
 #         if (epoch + 1) % 50 != 0:
 #             continue
 
 #         testing_start_time = time.time()
-#         hit_nums = [0, 0, 0, 0, 0]  # HR@1,5,10,20,50
-#         ndcgs = [0.0, 0.0, 0.0, 0.0, 0.0]
+
+#         hr_10 = 0
+#         recall_10 = 0
+#         precision_10 = 0.0
+#         ndcg_10 = 0.0
+
+#         # 只在最后一个epoch（epoch=99）收集推荐结果
+#         if epoch == 99:
+#             all_recommendations = []  # 重新初始化
+#             user_recommendations = defaultdict(list)
 
 #         for i, pos_entry in enumerate(all_pos):
 #             start = N * i
 #             end = N * i + N
-#             p_and_n_seq = all_neg[start:end] + [pos_entry]  # N+1 items
+#             candidates = all_neg[start:end] + [pos_entry]
 
 #             scores = []
-#             for _, u_id, item_id in p_and_n_seq:
+#             for _, u_id, item_id in candidates:
 #                 seq_len = sequence_tensor[u_id].shape[0]
-#                 u_emb = node_emb[u_id].reshape(1, 1, latent_size).to(device)
-#                 i_emb = node_emb[item_id].reshape(1, 1, latent_size).to(device)
-#                 seq_emb = sequence_tensor[u_id].reshape(1, seq_len, latent_size).to(device)
-#                 score = recommendation(i_emb, seq_emb)[:, -1]  # 取最后一类分数
+#                 i_emb = node_emb[item_id].reshape(1, 1, latent_size)
+#                 seq_emb = sequence_tensor[u_id].reshape(1, seq_len, latent_size)
+#                 score = recommendation(i_emb, seq_emb)[:, -1]
 #                 scores.append(score.item())
 
 #             scores = np.array(scores)
-#             normalized_scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
-#             pos_idx = len(scores) - 1
 #             ranked_idx = np.argsort(-scores)
 
-#             # 计算 hit
-#             if ranked_idx[0] == pos_idx:
-#                 hit_nums = [x+1 for x in hit_nums]
-#             elif pos_idx in ranked_idx[1:5]:
-#                 hit_nums[1:] = [x+1 for x in hit_nums[1:]]
-#             elif pos_idx in ranked_idx[5:10]:
-#                 hit_nums[2:] = [x+1 for x in hit_nums[2:]]
-#             elif pos_idx in ranked_idx[10:20]:
-#                 hit_nums[3:] = [x+1 for x in hit_nums[3:]]
-#             elif pos_idx in ranked_idx[20:50]:
-#                 hit_nums[4:] = [x+1 for x in hit_nums[4:]]
+#             pos_idx = len(scores) - 1
+#             top10 = ranked_idx[:10]
 
-#             # 计算 ndcg
-#             ndcgs[0] += ndcg_at_k(normalized_scores, 1, 0)
-#             ndcgs[1] += ndcg_at_k(normalized_scores, 5, 0)
-#             ndcgs[2] += ndcg_at_k(normalized_scores, 10, 0)
-#             ndcgs[3] += ndcg_at_k(normalized_scores, 20, 0)
-#             ndcgs[4] += ndcg_at_k(normalized_scores, 50, 0)
+#             if pos_idx in top10:
+#                 hr_10 += 1
+#                 recall_10 += 1
+#                 precision_10 += 1 / 10
+
+#                 rank = np.where(top10 == pos_idx)[0][0]
+#                 ndcg_10 += 1 / np.log2(rank + 2)
+
+#             # 保存推荐结果（只在最后一个epoch保存）
+#             if epoch == 99:
+#                 user_id = pos_entry[1]  # 获取用户ID
+                
+#                 # 保存top-5推荐
+#                 top_k = 5
+#                 for rank in range(min(top_k, len(ranked_idx))):
+#                     rec_item_id = candidates[ranked_idx[rank]][2]  # 获取推荐物品ID
+#                     user_recommendations[user_id].append(rec_item_id)
+                    
+#                     # 同时保存到all_recommendations用于整体保存
+#                     all_recommendations.append((user_id, rec_item_id))
 
 #         total_pos = len(all_pos)
-#         hit_rates = [h / total_pos for h in hit_nums]
-#         ndcgs = [x / total_pos for x in ndcgs]
 
-#         # 更新 best
-#         best_hit_1 = max(best_hit_1, hit_rates[0])
-#         best_hit_5 = max(best_hit_5, hit_rates[1])
-#         best_hit_10 = max(best_hit_10, hit_rates[2])
-#         best_hit_20 = max(best_hit_20, hit_rates[3])
-#         best_hit_50 = max(best_hit_50, hit_rates[4])
-#         best_ndcg_1 = max(best_ndcg_1, ndcgs[0])
-#         best_ndcg_5 = max(best_ndcg_5, ndcgs[1])
-#         best_ndcg_10 = max(best_ndcg_10, ndcgs[2])
-#         best_ndcg_20 = max(best_ndcg_20, ndcgs[3])
-#         best_ndcg_50 = max(best_ndcg_50, ndcgs[4])
+#         hr_10 /= total_pos
+#         recall_10 /= total_pos
+#         precision_10 /= total_pos
+#         ndcg_10 /= total_pos
+
+#         best_hr_10 = max(best_hr_10, hr_10)
+#         best_recall_10 = max(best_recall_10, recall_10)
+#         best_precision_10 = max(best_precision_10, precision_10)
+#         best_ndcg_10 = max(best_ndcg_10, ndcg_10)
 
 #         testing_time = time.time() - testing_start_time
-#         print(f"epoch:{epoch} | HR@1:{hit_rates[0]:.4f} HR@5:{hit_rates[1]:.4f} HR@10:{hit_rates[2]:.4f} "
-#               f"HR@20:{hit_rates[3]:.4f} HR@50:{hit_rates[4]:.4f} | "
-#               f"NDCG@1:{ndcgs[0]:.4f} NDCG@5:{ndcgs[1]:.4f} NDCG@10:{ndcgs[2]:.4f} "
-#               f"NDCG@20:{ndcgs[3]:.4f} NDCG@50:{ndcgs[4]:.4f} | "
-#               f"train_time:{train_time:.2f}s test_time:{testing_time:.2f}s")
 
-#     print('training finish')
+#         print(
+#             f"epoch:{epoch} | "
+#             f"HR@10:{hr_10:.4f} Recall@10:{recall_10:.4f} "
+#             f"Precision@10:{precision_10:.4f} NDCG@10:{ndcg_10:.4f} | "
+#             f"test_time:{testing_time:.2f}s"
+#         )
 
-def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
-    best_hr_10 = 0.0
-    best_recall_10 = 0.0
-    best_precision_10 = 0.0
-    best_ndcg_10 = 0.0
+#     # 训练结束后，保存推荐结果到文件
+#     print("\n保存推荐结果...")
+    
+#     if all_recommendations:
+#         # 保存简单的用户-物品对
+#         with open('tmer_recommendations.txt', 'w') as f:
+#             for user_id, item_id in all_recommendations:
+#                 f.write(f"{user_id},{item_id}\n")
+        
+#         print(f"保存了 {len(all_recommendations)} 条推荐记录")
+#         print("推荐结果已保存到: tmer_recommendations.txt")
+        
+#         # 如果需要按用户分类保存
+#         if 'user_recommendations' in locals():
+#             with open('tmer_user_recommendations.txt', 'w') as f:
+#                 for user_id in user_recommendations:
+#                     # 去重
+#                     unique_items = list(set(user_recommendations[user_id]))
+#                     for item_id in unique_items:
+#                         f.write(f"{user_id},{item_id}\n")
+#             print(f"覆盖了 {len(user_recommendations)} 个用户")
+#             print("用户推荐结果已保存到: tmer_user_recommendations.txt")
+#     else:
+#         print("警告: 没有收集到推荐结果")
+#         print("可能的原因:")
+#         print("1. 测试数据中没有正样本")
+#         print("2. 推荐模型没有正确训练")
+#         print("3. epoch=99的条件没有触发")
 
+#     print("training finish")
+
+def rec_net(train_loader, test_loader, node_emb, sequence_tensor, eval_every=10):
     if isinstance(node_emb, np.ndarray):
         node_emb = torch.tensor(node_emb, dtype=torch.float32).to(device)
     else:
         node_emb = node_emb.to(device)
 
-    # 正负样本
-    all_pos, all_neg = [], []
-    for idx in range(test_data.shape[0]):
-        user, item, link = test_data[idx]
-        user, item, link = int(user), int(item), int(link)
-        if link == 1:
-            all_pos.append((idx, user, item))
-        else:
-            all_neg.append((idx, user, item))
-
     recommendation = Recommendation(latent_size).to(device)
     optimizer = torch.optim.Adam(recommendation.parameters(), lr=1e-3)
 
-    for epoch in range(100):
-        # ========= Train =========
-        train_start_time = time.time()
-        running_loss = 0.0
+    user_recommendations = defaultdict(list)
+    user_scores = defaultdict(dict)
 
+    # 准备测试集正负样本
+    all_pos, all_neg = [], []
+    for idx in range(test_data.shape[0]):
+        u, i, l = test_data[idx]
+        u, i, l = int(u), int(i), int(l)
+        if l == 1:
+            all_pos.append((idx, u, i))
+        else:
+            all_neg.append((idx, u, i))
+
+    for epoch in range(100):
+        running_loss = 0.0
+        start_train = time.time()
+
+        # ===== Training =====
         for batch in train_loader:
             batch = batch.long()
             user_ids = batch[:, 0]
             item_ids = batch[:, 1]
             labels = batch[:, 2].to(device)
 
-            batch_sequence_tensor = []
+            batch_seq = []
             for u_id in user_ids:
                 seq_len = sequence_tensor[u_id].shape[0]
-                batch_sequence_tensor.append(
-                    sequence_tensor[u_id].reshape(1, seq_len, latent_size)
-                )
-            batch_sequence_tensor = torch.cat(batch_sequence_tensor, dim=0).to(device)
-
+                batch_seq.append(sequence_tensor[u_id].reshape(1, seq_len, latent_size))
+            batch_seq = torch.cat(batch_seq, dim=0).to(device)
             batch_item_emb = node_emb[item_ids].unsqueeze(1)
 
             optimizer.zero_grad()
-            prediction = recommendation(batch_item_emb, batch_sequence_tensor)
-            loss = torch.nn.functional.cross_entropy(prediction, labels)
+            pred = recommendation(batch_item_emb, batch_seq)
+            loss = F.nll_loss(pred, labels)
             loss.backward()
             optimizer.step()
-
             running_loss += loss.item()
 
-        train_time = time.time() - train_start_time
-        print(f"epoch:{epoch}, loss:{running_loss:.4f}, train_time:{train_time:.2f}s")
+        print(f"Epoch {epoch} loss={running_loss:.4f}, train_time={time.time()-start_train:.2f}s")
 
-        # ========= Test every 50 epochs =========
-        if (epoch + 1) % 50 != 0:
+        # ===== Evaluation =====
+        if (epoch + 1) % eval_every != 0:
             continue
 
-        testing_start_time = time.time()
-
-        hr_10 = 0
-        recall_10 = 0
-        precision_10 = 0.0
-        ndcg_10 = 0.0
+        hr_10, recall_10, precision_10, ndcg_10 = 0.0, 0.0, 0.0, 0.0
 
         for i, pos_entry in enumerate(all_pos):
             start = N * i
@@ -253,45 +289,47 @@ def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
                 seq_len = sequence_tensor[u_id].shape[0]
                 i_emb = node_emb[item_id].reshape(1, 1, latent_size)
                 seq_emb = sequence_tensor[u_id].reshape(1, seq_len, latent_size)
-                score = recommendation(i_emb, seq_emb)[:, -1]
-                scores.append(score.item())
+                pred = recommendation(i_emb, seq_emb)
+                score = pred[0, -1].item()
+                scores.append(score)
 
             scores = np.array(scores)
             ranked_idx = np.argsort(-scores)
-
-            pos_idx = len(scores) - 1
             top10 = ranked_idx[:10]
 
+            # ===== 保存前20个推荐 =====
+            top_k = min(20, len(ranked_idx))
+            for rank in range(top_k):
+                rec_item_id = candidates[ranked_idx[rank]][2]
+                user_id = candidates[ranked_idx[rank]][1]
+                user_recommendations[user_id].append(rec_item_id)
+                user_scores[user_id][rec_item_id] = scores[ranked_idx[rank]]
+
+            # ===== 计算指标 =====
+            pos_idx = len(scores) - 1  # 正样本在最后
             if pos_idx in top10:
                 hr_10 += 1
                 recall_10 += 1
                 precision_10 += 1 / 10
-
-                rank = np.where(top10 == pos_idx)[0][0]
-                ndcg_10 += 1 / np.log2(rank + 2)
+                rank_pos = np.where(top10 == pos_idx)[0][0]
+                ndcg_10 += 1 / np.log2(rank_pos + 2)
 
         total_pos = len(all_pos)
-
         hr_10 /= total_pos
         recall_10 /= total_pos
         precision_10 /= total_pos
         ndcg_10 /= total_pos
 
-        best_hr_10 = max(best_hr_10, hr_10)
-        best_recall_10 = max(best_recall_10, recall_10)
-        best_precision_10 = max(best_precision_10, precision_10)
-        best_ndcg_10 = max(best_ndcg_10, ndcg_10)
+        print(f"Epoch {epoch} | HR@10: {hr_10:.4f} Recall@10: {recall_10:.4f} "
+              f"Precision@10: {precision_10:.4f} NDCG@10: {ndcg_10:.4f}")
 
-        testing_time = time.time() - testing_start_time
+    # ===== 保存推荐结果和分数 =====
+    with open('tmer_user_recommendations.pkl', 'wb') as f:
+        pickle.dump(user_recommendations, f)
+    with open('tmer_user_scores.pkl', 'wb') as f:
+        pickle.dump(user_scores, f)
 
-        print(
-            f"epoch:{epoch} | "
-            f"HR@10:{hr_10:.4f} Recall@10:{recall_10:.4f} "
-            f"Precision@10:{precision_10:.4f} NDCG@10:{ndcg_10:.4f} | "
-            f"test_time:{testing_time:.2f}s"
-        )
-
-    print("training finish")
+    print("推荐结果和分数已保存！训练结束！")
 
 
 
