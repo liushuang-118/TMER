@@ -218,7 +218,7 @@ def main():
         "refinefolder": base_dir / "refine",
         "explanations_folder": base_dir / "path/all_ui_ii_instance_paths",
         "review_file": Path(
-            "D:/Thesis_Project/Models/TMER/Cell_Phones_and_Accessories_5.json"
+            "D:/Thesis_Project/Models/TMER/Clothing_Shoes_and_Jewelry_5.json"
         ),
     }
 

@@ -52,177 +52,16 @@ def instances_slf_att(model, input_tensor, device):
     with torch.no_grad():
         return model(input_tensor.to(device))
 
+# def item_attention(model, item_input, ii_path, device):
+#     with torch.no_grad():
+#         return model(item_input.to(device), ii_path.to(device))
+# 修改 run.py 中的调用
 def item_attention(model, item_input, ii_path, device):
     with torch.no_grad():
+        # 确保 item_input 是2维的 [batch_size, latent_dim]
+        if item_input.dim() == 3:
+            item_input = item_input.squeeze(1)
         return model(item_input.to(device), ii_path.to(device))
-
-
-# def rec_net(train_loader, test_loader, node_emb, sequence_tensor):
-#     best_hr_10 = 0.0
-#     best_recall_10 = 0.0
-#     best_precision_10 = 0.0
-#     best_ndcg_10 = 0.0
-
-#     if isinstance(node_emb, np.ndarray):
-#         node_emb = torch.tensor(node_emb, dtype=torch.float32).to(device)
-#     else:
-#         node_emb = node_emb.to(device)
-
-#     # 正负样本
-#     all_pos, all_neg = [], []
-#     for idx in range(test_data.shape[0]):
-#         user, item, link = test_data[idx]
-#         user, item, link = int(user), int(item), int(link)
-#         if link == 1:
-#             all_pos.append((idx, user, item))
-#         else:
-#             all_neg.append((idx, user, item))
-
-#     recommendation = Recommendation(latent_size).to(device)
-#     optimizer = torch.optim.Adam(recommendation.parameters(), lr=1e-3)
-
-#     # 存储所有推荐结果
-#     all_recommendations = []
-    
-#     for epoch in range(100):
-#         # ========= Train =========
-#         train_start_time = time.time()
-#         running_loss = 0.0
-
-#         for batch in train_loader:
-#             batch = batch.long()
-#             user_ids = batch[:, 0]
-#             item_ids = batch[:, 1]
-#             labels = batch[:, 2].to(device)
-
-#             batch_sequence_tensor = []
-#             for u_id in user_ids:
-#                 seq_len = sequence_tensor[u_id].shape[0]
-#                 batch_sequence_tensor.append(
-#                     sequence_tensor[u_id].reshape(1, seq_len, latent_size)
-#                 )
-#             batch_sequence_tensor = torch.cat(batch_sequence_tensor, dim=0).to(device)
-
-#             batch_item_emb = node_emb[item_ids].unsqueeze(1)
-
-#             optimizer.zero_grad()
-#             prediction = recommendation(batch_item_emb, batch_sequence_tensor)
-#             loss = torch.nn.functional.cross_entropy(prediction, labels)
-#             loss.backward()
-#             optimizer.step()
-
-#             running_loss += loss.item()
-
-#         train_time = time.time() - train_start_time
-#         print(f"epoch:{epoch}, loss:{running_loss:.4f}, train_time:{train_time:.2f}s")
-
-#         # ========= Test every 50 epochs =========
-#         if (epoch + 1) % 50 != 0:
-#             continue
-
-#         testing_start_time = time.time()
-
-#         hr_10 = 0
-#         recall_10 = 0
-#         precision_10 = 0.0
-#         ndcg_10 = 0.0
-
-#         # 只在最后一个epoch（epoch=99）收集推荐结果
-#         if epoch == 99:
-#             all_recommendations = []  # 重新初始化
-#             user_recommendations = defaultdict(list)
-
-#         for i, pos_entry in enumerate(all_pos):
-#             start = N * i
-#             end = N * i + N
-#             candidates = all_neg[start:end] + [pos_entry]
-
-#             scores = []
-#             for _, u_id, item_id in candidates:
-#                 seq_len = sequence_tensor[u_id].shape[0]
-#                 i_emb = node_emb[item_id].reshape(1, 1, latent_size)
-#                 seq_emb = sequence_tensor[u_id].reshape(1, seq_len, latent_size)
-#                 score = recommendation(i_emb, seq_emb)[:, -1]
-#                 scores.append(score.item())
-
-#             scores = np.array(scores)
-#             ranked_idx = np.argsort(-scores)
-
-#             pos_idx = len(scores) - 1
-#             top10 = ranked_idx[:10]
-
-#             if pos_idx in top10:
-#                 hr_10 += 1
-#                 recall_10 += 1
-#                 precision_10 += 1 / 10
-
-#                 rank = np.where(top10 == pos_idx)[0][0]
-#                 ndcg_10 += 1 / np.log2(rank + 2)
-
-#             # 保存推荐结果（只在最后一个epoch保存）
-#             if epoch == 99:
-#                 user_id = pos_entry[1]  # 获取用户ID
-                
-#                 # 保存top-5推荐
-#                 top_k = 5
-#                 for rank in range(min(top_k, len(ranked_idx))):
-#                     rec_item_id = candidates[ranked_idx[rank]][2]  # 获取推荐物品ID
-#                     user_recommendations[user_id].append(rec_item_id)
-                    
-#                     # 同时保存到all_recommendations用于整体保存
-#                     all_recommendations.append((user_id, rec_item_id))
-
-#         total_pos = len(all_pos)
-
-#         hr_10 /= total_pos
-#         recall_10 /= total_pos
-#         precision_10 /= total_pos
-#         ndcg_10 /= total_pos
-
-#         best_hr_10 = max(best_hr_10, hr_10)
-#         best_recall_10 = max(best_recall_10, recall_10)
-#         best_precision_10 = max(best_precision_10, precision_10)
-#         best_ndcg_10 = max(best_ndcg_10, ndcg_10)
-
-#         testing_time = time.time() - testing_start_time
-
-#         print(
-#             f"epoch:{epoch} | "
-#             f"HR@10:{hr_10:.4f} Recall@10:{recall_10:.4f} "
-#             f"Precision@10:{precision_10:.4f} NDCG@10:{ndcg_10:.4f} | "
-#             f"test_time:{testing_time:.2f}s"
-#         )
-
-#     # 训练结束后，保存推荐结果到文件
-#     print("\n保存推荐结果...")
-    
-#     if all_recommendations:
-#         # 保存简单的用户-物品对
-#         with open('tmer_recommendations.txt', 'w') as f:
-#             for user_id, item_id in all_recommendations:
-#                 f.write(f"{user_id},{item_id}\n")
-        
-#         print(f"保存了 {len(all_recommendations)} 条推荐记录")
-#         print("推荐结果已保存到: tmer_recommendations.txt")
-        
-#         # 如果需要按用户分类保存
-#         if 'user_recommendations' in locals():
-#             with open('tmer_user_recommendations.txt', 'w') as f:
-#                 for user_id in user_recommendations:
-#                     # 去重
-#                     unique_items = list(set(user_recommendations[user_id]))
-#                     for item_id in unique_items:
-#                         f.write(f"{user_id},{item_id}\n")
-#             print(f"覆盖了 {len(user_recommendations)} 个用户")
-#             print("用户推荐结果已保存到: tmer_user_recommendations.txt")
-#     else:
-#         print("警告: 没有收集到推荐结果")
-#         print("可能的原因:")
-#         print("1. 测试数据中没有正样本")
-#         print("2. 推荐模型没有正确训练")
-#         print("3. epoch=99的条件没有触发")
-
-#     print("training finish")
 
 def rec_net(train_loader, test_loader, node_emb, sequence_tensor, eval_every=10):
     if isinstance(node_emb, np.ndarray):
@@ -382,123 +221,151 @@ if __name__ == '__main__':
     print(f'labels.shape: {labels.shape}')
     print('loading node embedding, all user-item and item-item paths embedding...finished')
 
-    # # 1. user-item instances slf attention and for each user item, get one instance embedding.
+    # # 1. user-item instances self attention and for each user-item, get one instance embedding.
     # print('start training user-item instance self attention module...')
     # maxpool = Maxpooling()
     # ui_paths_att_emb = defaultdict()
     # t = time.time()
+
+    # # 创建 self-attention 模型实例
+    # slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
+
     # for u in range(user_num):
     #     if u % 100 == 0:
     #         t_here = time.time() - t
-    #         print('user ',u, 'time: ',t_here)
+    #         print('user ', u, 'time: ', t_here)
+
     #     user_item_paths_emb = ui_all_paths_emb[u]
     #     this_user_ui_paths_att_emb = defaultdict()
+
     #     for i in ui_dict[u]:
-    #         if len(ui_all_paths_emb[u][(u, i)]) == 1:
-    #             this_user_ui_paths_att_emb[(u, i)] = ui_all_paths_emb[u][(u, i)]
+    #         paths_emb_list = ui_all_paths_emb[u][(u, i)]
+    #         if len(paths_emb_list) == 1:
+    #             this_user_ui_paths_att_emb[(u, i)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
     #         else:
-    #             slf_att_input = torch.Tensor(ui_all_paths_emb[u][(u, i)]).unsqueeze(0)
-    #             this_user_ui_paths_att_emb[(u, i)] = instances_slf_att(slf_att_input)
-    #             # user-item instances to one. for each user-item pair, only one instance is needed.
-    #             max_pooling_input = torch.from_numpy(this_user_ui_paths_att_emb[(u, i)])
-    #             get_one_ui = maxpool(max_pooling_input).squeeze(0)
+    #             slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
+    #             # 调用 self-attention 时传入 model
+    #             att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
+
+    #             # max-pooling 取一个实例
+    #             get_one_ui = maxpool(att_output).squeeze(0)
     #             this_user_ui_paths_att_emb[(u, i)] = get_one_ui
+
     #     ui_paths_att_emb[u] = this_user_ui_paths_att_emb
+
     # ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) +'_ui_batch_paths_att_emb.pkl'
     # pickle.dump(ui_paths_att_emb, open(ui_batch_paths_att_emb_pkl_file, 'wb'))
+
 
     # # 2. item-item instances slf attention
     # print('start training item-item instance self attention module...')
     # start_t_ii = time.time()
     # ii_paths_att_emb = defaultdict()
+
     # for u in range(user_num):
     #     if u % 100 == 0:
     #         t_here = time.time() - start_t_ii
     #         print('user ',u, 'time: ',t_here)
+
     #     item_item_paths_emb = ii_all_paths_emb[u]
     #     num_item = len(ui_dict[u])
     #     this_user_ii_paths_att_emb = defaultdict()
+
     #     for i_index in range(num_item - 1):
     #         i1 = ui_dict[u][i_index]
     #         i2 = ui_dict[u][i_index + 1]
-    #         if len(ii_all_paths_emb[u][(i1, i2)]) == 1:
-    #             this_user_ii_paths_att_emb[(i1, i2)] = ii_all_paths_emb[u][(i1, i2)]
+
+    #         paths_emb_list = ii_all_paths_emb[u][(i1, i2)]
+    #         if len(paths_emb_list) == 1:
+    #             this_user_ii_paths_att_emb[(i1, i2)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
     #         else:
-    #             slf_att_input = torch.Tensor(ii_all_paths_emb[u][(i1, i2)]).unsqueeze(0)
-    #             this_user_ii_paths_att_emb[(i1, i2)] = instances_slf_att(slf_att_input).squeeze(0)
-    #             this_user_ii_paths_att_emb[(i1, i2)] = torch.from_numpy(this_user_ii_paths_att_emb[(i1, i2)])
+    #             slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
+    #             att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
+    #             get_one_ii = maxpool(att_output).squeeze(0)
+    #             this_user_ii_paths_att_emb[(i1, i2)] = get_one_ii
 
     #     ii_paths_att_emb[u] = this_user_ii_paths_att_emb
+
     # ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
     # pickle.dump(ii_paths_att_emb, open(ii_batch_paths_att_emb_pkl_file, 'wb'))
 
-    # # 3. user and item embedding
+    # 3. user and item embedding
+    slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
+    item_att_model = ItemAttention(latent_dim=latent_size, att_size=100).to(device)
 
-    # slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
-    # item_att_model = ItemAttention(latent_dim=latent_size, att_size=100).to(device)
+    # 加载之前生成的路径 embeddings
+    ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
+    ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ui_batch_paths_att_emb.pkl'
+    ii_paths_att_emb = pickle.load(open(ii_batch_paths_att_emb_pkl_file, 'rb'))
+    ui_paths_att_emb = pickle.load(open(ui_batch_paths_att_emb_pkl_file, 'rb'))
 
+    print('start updating user and item embedding...')
+    start_t_u_i = time.time()
+    sequence_concat = []
 
-    # ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
-    # ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ui_batch_paths_att_emb.pkl'
-    # ii_paths_att_emb = pickle.load(open(ii_batch_paths_att_emb_pkl_file, 'rb'))
-    # ui_paths_att_emb = pickle.load(open(ui_batch_paths_att_emb_pkl_file, 'rb'))
-    # print('start updating user and item embedding...')
-    # start_t_u_i = time.time()
-    # sequence_concat = []
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - start_t_u_i
+            print('user ', u, 'time: ', t_here)
 
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - start_t_u_i
-    #         print('user ', u, 'time: ', t_here)
+        user_sequence_concat = defaultdict()
+        this_user_ui_paths_dic = ui_paths_att_emb[u]
+        this_user_ii_paths_dic = ii_paths_att_emb[u]
 
-    #     user_sequence_concat = defaultdict()
-    #     this_user_ui_paths_dic = ui_paths_att_emb[u]
-    #     this_user_ii_paths_dic = ii_paths_att_emb[u]
+        # user embedding
+        u_emb = node_emb[u].reshape(1, -1).to(device)  # [1, latent_size]
 
-    #     # user embedding
-    #     u_emb = node_emb[u].reshape(1, -1).to(device)
+        # ---- First item ----
+        i1_id = ui_dict[u][0]
 
-    #     # ---- First item ----
-    #     i1_id = ui_dict[u][0]
+        # 转成 tensor 并确保 [1, num_paths, latent_size]
+        u_i1_emb = torch.tensor(this_user_ui_paths_dic[(u, i1_id)], dtype=torch.float32, device=device)
+        if u_i1_emb.dim() == 1:
+            u_i1_emb = u_i1_emb.unsqueeze(0).unsqueeze(0)  # [1,1,latent_size]
+        else:
+            u_i1_emb = u_i1_emb.unsqueeze(0)  # [1,num_paths,latent_size]
 
-    #     # 转成 tensor
-    #     u_i1_emb = torch.tensor(this_user_ui_paths_dic[(u, i1_id)], dtype=torch.float32).reshape(1, -1).to(device)
-    #     item1_emb = node_emb[i1_id].reshape(1, -1).to(device)
+        # 当前 item embedding
+        item1_emb = node_emb[i1_id].reshape(1, -1).to(device)  # [1, latent_dim]
+        item1_att = item_attention(item_att_model, item1_emb, u_i1_emb, device)  # 输出 [1, latent_dim]
 
-    #     # item attention: first item
-    #     item1_att = item_attention(item_att_model, item1_emb, u_i1_emb.unsqueeze(0), device)
+        # 合并 user embedding
+        user_sequence_concat[0] = torch.cat([u_emb, item1_att], dim=0)  # [2, latent_size]
 
-    #     user_sequence_concat[0] = torch.cat([u_emb, u_i1_emb, item1_att], dim=0)
+        last_item_att = item1_att
 
-    #     last_item_att = item1_att
+        # ---- Remaining items ----
+        for i_index in range(1, user_n_items):
+            i1 = ui_dict[u][i_index - 1]
+            i2 = ui_dict[u][i_index]
 
-    #     # ---- Remaining items ----
-    #     for i_index in range(1, user_n_items):
-    #         i1 = ui_dict[u][i_index - 1]
-    #         i2 = ui_dict[u][i_index]
+            # 转成 tensor 并确保 [1, num_paths, latent_size]
+            item_att_input = torch.tensor(this_user_ii_paths_dic[(i1, i2)], dtype=torch.float32, device=device)
+            if item_att_input.dim() == 1:
+                item_att_input = item_att_input.unsqueeze(0).unsqueeze(0)  # [1,1,latent_size]
+            else:
+                item_att_input = item_att_input.unsqueeze(0)  # [1,num_paths,latent_size]
 
-    #         # 转成 tensor
-    #         item_att_input = torch.tensor(this_user_ii_paths_dic[(i1, i2)], dtype=torch.float32).unsqueeze(0).to(device)
+            # attention #1: 上一个 item embedding
+            ii_1 = item_attention(item_att_model, last_item_att, item_att_input, device)  # [1, latent_dim]
 
-    #         # attention #1
-    #         ii_1 = item_attention(item_att_model, last_item_att, item_att_input, device)
+            # attention #2: 当前 item embedding
+            i2_emb_input = node_emb[i2].reshape(1, -1).to(device)  # [1, latent_dim]
+            ii_2 = item_attention(item_att_model, i2_emb_input, item_att_input, device)  # [1, latent_dim]
 
-    #         # attention #2
-    #         ii_2 = item_attention(item_att_model, node_emb[i2].unsqueeze(0).to(device), item_att_input, device)
+            # 合并 user + ii_1 + ii_2
+            user_sequence_concat[i_index] = torch.cat([u_emb, ii_1, ii_2], dim=0)  # [3, latent_size]
+            last_item_att = ii_2
 
-    #         user_sequence_concat[i_index] = torch.cat([u_emb, ii_1, ii_2], dim=0)
-    #         last_item_att = ii_2
+        # concatenate user sequence
+        sequence_concat.append(torch.cat([user_sequence_concat[i] for i in range(user_n_items)], dim=0))
 
-    #     # concatenate user sequence
-    #     sequence_concat.append(torch.cat([user_sequence_concat[i] for i in range(user_n_items)], dim=0))
+    # stack all users
+    sequence_tensor = torch.stack(sequence_concat)  # [user_num, total_seq_len, latent_size]
 
-    # # stack all users
-    # sequence_tensor = torch.stack(sequence_concat)
-
-    # sequence_tensor_pkl_name = data_name + '_' + str(negative_num) + '_sequence_tensor.pkl'
-    # pickle.dump(sequence_tensor, open(sequence_tensor_pkl_name, 'wb'))
-    # print("Sequence tensor saved:", sequence_tensor_pkl_name)
-
+    sequence_tensor_pkl_name = data_name + '_' + str(negative_num) + '_sequence_tensor.pkl'
+    pickle.dump(sequence_tensor, open(sequence_tensor_pkl_name, 'wb'))
+    print("Sequence tensor saved:", sequence_tensor_pkl_name)
 
     # 4. recommendation
     print('start training recommendation module...')

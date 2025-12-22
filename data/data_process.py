@@ -8,65 +8,6 @@ from random import choices
 from pathlib import Path
 
 
-# def process_initial_ratings(args):
-#     ratings = pd.read_csv(args.ratings_csv, header=None, sep=',')
-
-#     # print(len(set(ratings[0])))
-#     # print(len(set(ratings[1])))
-#     topk = args.topk
-
-#     """
-#     music
-#     339231 users    get 1450
-#     83046   items   get 11457
-
-#     automotive
-#     851418 users    get 4600
-#     320112 items
-
-#     toy
-#     1342911 users
-#     327698 items
-#     """
-
-#     # get top 2200 user who are of high frequency.
-#     c = Counter(ratings[0])
-#     most_user = c.most_common(1450)  # each user has more than 12 items.
-#     # print(most_user)
-
-#     selected_users = [i[0] for i in most_user]
-
-#     # items of selected_users
-#     item_filter = ratings[ratings[0].isin(selected_users)]
-#     c_item = Counter(item_filter[1])
-#     most_item = c_item.most_common()
-#     # print(most_item)
-#     selected_items = [i[0] for i in most_item]
-
-#     small_ratings = ratings[(ratings[0].isin(selected_users)) & (ratings[1].isin(selected_items))]
-#     # print(small_ratings)
-
-#     re_user = Counter(small_ratings[0])
-
-#     # all user, and all its items, only select first 12 items.
-#     selected_ratings = pd.DataFrame()
-#     for userid in re_user:
-#         user_items = small_ratings[(small_ratings[0] == userid)]
-#         user_items.columns = ['userid', 'itemid', 'ratings', 'timestamp']
-#         if len(user_items) <= topk:
-#             selected_ratings = pd.concat([selected_ratings, new_user_items], ignore_index=True)
-#             continue
-#         new_user_items = user_items.nlargest(topk, 'timestamp')
-#         selected_ratings = pd.concat([selected_ratings, new_user_items], ignore_index=True)
-
-#     re_user = Counter(selected_ratings['userid'])
-#     print(len(re_user))
-#     re_item = Counter(selected_ratings['itemid'])
-#     print(len(re_item))
-
-#     selected_ratings.to_csv(args.output_ratings_csv, header=None, index=None, sep=',')
-#     print(f'saved to {args.output_ratings_csv}')
-
 def process_initial_ratings(args):
     ratings = pd.read_csv(args.ratings_csv, header=None, sep=',')
 
@@ -112,10 +53,19 @@ def process_initial_ratings(args):
 #     item_category = []
 #     item_brand = []
 #     item_item = []
-#     # with open('./old/meta_Musical_Instruments.json', 'r') as f:
 #     metafile = args.metafile
+    
 #     with open(metafile, 'r') as f:
 #         lines = f.readlines()
+#         # 只检查前几行，看看字段名是什么
+#         for i, line in enumerate(lines[:5]):  # 检查前5行
+#             line_json = json.loads(line)
+#             # print(f"第{i+1}行的字段: {list(line_json.keys())}")
+            
+#         # 重置文件指针
+#         f.seek(0)
+#         lines = f.readlines()
+        
 #         for line in lines:
 #             line_json = json.loads(line)
 #             if 'category' in line_json.keys():
@@ -123,22 +73,14 @@ def process_initial_ratings(args):
 #                     item_category.append([line_json['asin'], 'c_'+cate])
 #             if 'brand' in line_json.keys():
 #                 item_brand.append([line_json['asin'], 'b_'+line_json['brand']])
-
 #             if 'also_buy' in line_json.keys():
 #                 for also_item in line_json['also_buy']:
 #                     item_item.append([line_json['asin'], also_item])
+    
+#     print(f"提取到的类别数量: {len(item_category)}")
+#     print(f"提取到的品牌数量: {len(item_brand)}")
+#     print(f"提取到的item-item关系数量: {len(item_item)}")
 
-#     item_category_df = pd.DataFrame(item_category)
-#     item_brand_df = pd.DataFrame(item_brand)
-#     item_item_df = pd.DataFrame(item_item)
-#     outputfolder = args.outputoldfolder
-#     ic_filename = outputfolder + 'item_category.csv'
-#     ib_filename = outputfolder + 'item_brand.csv'
-#     ii_filename = outputfolder + 'item_item.csv'
-#     item_category_df.to_csv(ic_filename, header=None, index=None, sep=',')
-#     item_brand_df.to_csv(ib_filename, header=None, index=None, sep=',')
-#     item_item_df.to_csv(ii_filename, header=None, index=None, sep=',')
-#     print(f'saved items meta to folder: {outputfolder}')
 def get_item_meta(args):
     item_category = []
     item_brand = []
@@ -147,15 +89,6 @@ def get_item_meta(args):
     
     with open(metafile, 'r') as f:
         lines = f.readlines()
-        # 只检查前几行，看看字段名是什么
-        for i, line in enumerate(lines[:5]):  # 检查前5行
-            line_json = json.loads(line)
-            # print(f"第{i+1}行的字段: {list(line_json.keys())}")
-            
-        # 重置文件指针
-        f.seek(0)
-        lines = f.readlines()
-        
         for line in lines:
             line_json = json.loads(line)
             if 'category' in line_json.keys():
@@ -171,159 +104,14 @@ def get_item_meta(args):
     print(f"提取到的品牌数量: {len(item_brand)}")
     print(f"提取到的item-item关系数量: {len(item_item)}")
 
+    # 保存 CSV 文件
+    outputoldfolder = args.outputoldfolder
+    pd.DataFrame(item_category).to_csv(outputoldfolder + 'item_category.csv', header=None, index=None, sep=',')
+    pd.DataFrame(item_brand).to_csv(outputoldfolder + 'item_brand.csv', header=None, index=None, sep=',')
+    pd.DataFrame(item_item).to_csv(outputoldfolder + 'item_item.csv', header=None, index=None, sep=',')
+    print("item_category.csv, item_brand.csv, item_item.csv 已保存到 old 目录")
 
-# def form_ids(args):
 
-#     """
-#     refine item_category.csv,item_brand.csv,item_item.csv according to user_rate_item.csv
-#     """
-#     outputfolder = args.outputoldfolder
-#     ic_filename = outputfolder + 'item_category.csv'
-#     ib_filename = outputfolder + 'item_brand.csv'
-#     ii_filename = outputfolder + 'item_item.csv'
-#     user_rate_item_df = pd.read_csv(args.output_ratings_csv, header=None, sep=',')
-#     # print(user_rate_item_df)
-#     user_set = set(user_rate_item_df[0])
-#     item_set = set(user_rate_item_df[1])
-
-#     item_category_df = pd.read_csv(ic_filename, header=None, sep=',')
-#     item_category_df = item_category_df[item_category_df[0].isin(list(item_set))]
-#     category_set = set(item_category_df[1])
-#     # print(item_category_df)
-
-#     item_brand_df = pd.read_csv(ib_filename, header=None, sep=',')
-#     item_brand_df = item_brand_df[item_brand_df[0].isin(list(item_set))]
-#     brand_set = set(item_brand_df[1])
-#     # print(item_brand_df)
-
-#     item_item_df = pd.read_csv(ii_filename, header=None, sep=',')
-#     item_item_df = item_item_df[(item_item_df[0].isin(list(item_set))) & (item_item_df[1].isin(list(item_set)))]
-#     # print(item_item_df)
-
-#     refinefolder = args.refinefolder
-#     ic_refine = refinefolder + 'item_category_refine.csv'
-#     ib_refine = refinefolder + 'item_brand_refine.csv'
-#     ii_refine = refinefolder + 'item_item_refine.csv'
-
-#     item_category_df.to_csv(ic_refine, header=None, index=None, sep=',')
-#     item_brand_df.to_csv(ib_refine, header=None, index=None, sep=',')
-#     item_item_df.to_csv(ii_refine, header=None, index=None, sep=',')
-
-#     """
-#     generate maps, for further using
-#     """
-#     name2id = defaultdict(int)
-#     id2name = defaultdict(str)
-#     name2type = defaultdict(str)
-#     id2type = defaultdict(str)
-#     type2name = defaultdict(list)
-#     type2id = defaultdict(list)
-
-#     allnodes = list(user_set) + list(item_set) + list(category_set) + list(brand_set)
-
-#     """
-#     ('Players', 2), ('Latin Percussion', 2) category_set,brand_set
-#     """
-#     # print('Latin Percussion' in category_set)
-#     # print('Latin Percussion' in brand_set)
-#     cc = Counter(allnodes)
-#     # print(cc.most_common())
-#     print('all', len(allnodes))
-#     print(len(set(allnodes)))
-#     print('item_set', len(item_set))
-#     print('category_set', len(category_set))
-#     print('brand_set', len(brand_set))
-
-#     i = 0
-#     for name in user_set:
-#         name2id[name] = i
-#         id2name[i] = name
-#         name2type[name] = 'user'
-#         id2type[i] = 'user'
-#         type2name['user'].append(name)
-#         type2id['user'].append(i)
-#         i = i + 1
-
-#     for name in item_set:
-#         name2id[name] = i
-#         id2name[i] = name
-#         name2type[name] = 'item'
-#         id2type[i] = 'item'
-#         type2name['item'].append(name)
-#         type2id['item'].append(i)
-#         i = i + 1
-#     for name in category_set:
-#         name2id[name] = i
-#         id2name[i] = name
-#         name2type[name] = 'category'
-#         id2type[i] = 'category'
-#         type2name['category'].append(name)
-#         type2id['category'].append(i)
-#         i = i + 1
-#     for name in brand_set:
-#         name2id[name] = i
-#         id2name[i] = name
-#         name2type[name] = 'brand'
-#         id2type[i] = 'brand'
-#         type2name['brand'].append(name)
-#         type2id['brand'].append(i)
-#         i = i + 1
-
-#     name2idfile = refinefolder + 'map.name2id'
-#     id2namefile = refinefolder + 'map.id2name'
-#     name2typefile = refinefolder + 'map.name2type'
-#     id2typefile = refinefolder + 'map.id2type'
-#     type2namefile = refinefolder + 'map.type2name'
-#     type2idfile = refinefolder + 'map.type2id'
-#     pickle.dump(name2id, open(name2idfile, 'wb'))
-#     pickle.dump(id2name, open(id2namefile, 'wb'))
-#     pickle.dump(name2type, open(name2typefile, 'wb'))
-#     pickle.dump(id2type, open(id2typefile, 'wb'))
-#     pickle.dump(type2name, open(type2namefile, 'wb'))
-#     pickle.dump(type2id, open(type2idfile, 'wb'))
-
-#     """
-#     generate relation file, using new ids
-#     """
-
-#     ic_relation = refinefolder + 'item_category.relation'
-#     ib_relation = refinefolder + 'item_brand.relation'
-#     ii_relation = refinefolder + 'item_item.relation'
-#     ui_relation = refinefolder + 'user_item.relation'
-#     item_category = []
-#     item_brand = []
-#     item_item = []
-#     user_item = []  # user_id, item_id, timestamp
-#     for _, row in item_category_df.iterrows():
-#         item_id = name2id[row[0]]
-#         category_id = name2id[row[1]]
-#         item_category.append([item_id, category_id])
-#     item_category_relation = pd.DataFrame(item_category)
-#     item_category_relation.to_csv(ic_relation, header=None, index=None, sep=',')
-
-#     for _, row in item_brand_df.iterrows():
-#         item_id = name2id[row[0]]
-#         brand_id = name2id[row[1]]
-#         item_brand.append([item_id, brand_id])
-#     item_brand_relation = pd.DataFrame(item_brand)
-#     item_brand_relation.to_csv(ib_relation, header=None, index=None, sep=',')
-
-#     for _, row in item_item_df.iterrows():
-#         item1_id = name2id[row[0]]
-#         item2_id = name2id[row[1]]
-#         item_item.append([item1_id, item2_id])
-#     item_item_relation = pd.DataFrame(item_item)
-#     item_item_relation.to_csv(ii_relation, header=None, index=None, sep=',')
-
-#     for _, row in user_rate_item_df.iterrows():
-#         user_id = name2id[row[0]]
-#         item_id = name2id[row[1]]
-#         timestamp = int(row[3])
-#         user_item.append([user_id, item_id, timestamp])
-#     user_item_relation = pd.DataFrame(user_item)
-#     user_item_relation.to_csv(ui_relation, header=None, index=None, sep=',')
-#     print(f'generic id finish')
-#     return len(allnodes)
 def form_ids(args):
     """
     refine item_category.csv,item_brand.csv,item_item.csv according to user_rate_item.csv
