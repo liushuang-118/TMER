@@ -221,73 +221,73 @@ if __name__ == '__main__':
     print(f'labels.shape: {labels.shape}')
     print('loading node embedding, all user-item and item-item paths embedding...finished')
 
-    # # 1. user-item instances self attention and for each user-item, get one instance embedding.
-    # print('start training user-item instance self attention module...')
-    # maxpool = Maxpooling()
-    # ui_paths_att_emb = defaultdict()
-    # t = time.time()
+    # 1. user-item instances self attention and for each user-item, get one instance embedding.
+    print('start training user-item instance self attention module...')
+    maxpool = Maxpooling()
+    ui_paths_att_emb = defaultdict()
+    t = time.time()
 
-    # # 创建 self-attention 模型实例
-    # slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
+    # 创建 self-attention 模型实例
+    slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
 
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - t
-    #         print('user ', u, 'time: ', t_here)
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - t
+            print('user ', u, 'time: ', t_here)
 
-    #     user_item_paths_emb = ui_all_paths_emb[u]
-    #     this_user_ui_paths_att_emb = defaultdict()
+        user_item_paths_emb = ui_all_paths_emb[u]
+        this_user_ui_paths_att_emb = defaultdict()
 
-    #     for i in ui_dict[u]:
-    #         paths_emb_list = ui_all_paths_emb[u][(u, i)]
-    #         if len(paths_emb_list) == 1:
-    #             this_user_ui_paths_att_emb[(u, i)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
-    #         else:
-    #             slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
-    #             # 调用 self-attention 时传入 model
-    #             att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
+        for i in ui_dict[u]:
+            paths_emb_list = ui_all_paths_emb[u][(u, i)]
+            if len(paths_emb_list) == 1:
+                this_user_ui_paths_att_emb[(u, i)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
+            else:
+                slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
+                # 调用 self-attention 时传入 model
+                att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
 
-    #             # max-pooling 取一个实例
-    #             get_one_ui = maxpool(att_output).squeeze(0)
-    #             this_user_ui_paths_att_emb[(u, i)] = get_one_ui
+                # max-pooling 取一个实例
+                get_one_ui = maxpool(att_output).squeeze(0)
+                this_user_ui_paths_att_emb[(u, i)] = get_one_ui
 
-    #     ui_paths_att_emb[u] = this_user_ui_paths_att_emb
+        ui_paths_att_emb[u] = this_user_ui_paths_att_emb
 
-    # ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) +'_ui_batch_paths_att_emb.pkl'
-    # pickle.dump(ui_paths_att_emb, open(ui_batch_paths_att_emb_pkl_file, 'wb'))
+    ui_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) +'_ui_batch_paths_att_emb.pkl'
+    pickle.dump(ui_paths_att_emb, open(ui_batch_paths_att_emb_pkl_file, 'wb'))
 
 
-    # # 2. item-item instances slf attention
-    # print('start training item-item instance self attention module...')
-    # start_t_ii = time.time()
-    # ii_paths_att_emb = defaultdict()
+    # 2. item-item instances slf attention
+    print('start training item-item instance self attention module...')
+    start_t_ii = time.time()
+    ii_paths_att_emb = defaultdict()
 
-    # for u in range(user_num):
-    #     if u % 100 == 0:
-    #         t_here = time.time() - start_t_ii
-    #         print('user ',u, 'time: ',t_here)
+    for u in range(user_num):
+        if u % 100 == 0:
+            t_here = time.time() - start_t_ii
+            print('user ',u, 'time: ',t_here)
 
-    #     item_item_paths_emb = ii_all_paths_emb[u]
-    #     num_item = len(ui_dict[u])
-    #     this_user_ii_paths_att_emb = defaultdict()
+        item_item_paths_emb = ii_all_paths_emb[u]
+        num_item = len(ui_dict[u])
+        this_user_ii_paths_att_emb = defaultdict()
 
-    #     for i_index in range(num_item - 1):
-    #         i1 = ui_dict[u][i_index]
-    #         i2 = ui_dict[u][i_index + 1]
+        for i_index in range(num_item - 1):
+            i1 = ui_dict[u][i_index]
+            i2 = ui_dict[u][i_index + 1]
 
-    #         paths_emb_list = ii_all_paths_emb[u][(i1, i2)]
-    #         if len(paths_emb_list) == 1:
-    #             this_user_ii_paths_att_emb[(i1, i2)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
-    #         else:
-    #             slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
-    #             att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
-    #             get_one_ii = maxpool(att_output).squeeze(0)
-    #             this_user_ii_paths_att_emb[(i1, i2)] = get_one_ii
+            paths_emb_list = ii_all_paths_emb[u][(i1, i2)]
+            if len(paths_emb_list) == 1:
+                this_user_ii_paths_att_emb[(i1, i2)] = torch.tensor(paths_emb_list[0], dtype=torch.float, device=device)
+            else:
+                slf_att_input = torch.tensor(paths_emb_list, dtype=torch.float, device=device).unsqueeze(0)
+                att_output = instances_slf_att(model=slf_att_model, input_tensor=slf_att_input, device=device)
+                get_one_ii = maxpool(att_output).squeeze(0)
+                this_user_ii_paths_att_emb[(i1, i2)] = get_one_ii
 
-    #     ii_paths_att_emb[u] = this_user_ii_paths_att_emb
+        ii_paths_att_emb[u] = this_user_ii_paths_att_emb
 
-    # ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
-    # pickle.dump(ii_paths_att_emb, open(ii_batch_paths_att_emb_pkl_file, 'wb'))
+    ii_batch_paths_att_emb_pkl_file = data_name + '_' + str(negative_num) + '_ii_batch_paths_att_emb.pkl'
+    pickle.dump(ii_paths_att_emb, open(ii_batch_paths_att_emb_pkl_file, 'wb'))
 
     # 3. user and item embedding
     slf_att_model = Self_Attention_Network(user_item_dim=latent_size).to(device)
